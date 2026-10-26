@@ -77,6 +77,14 @@ def train_step(
 
 
 def pick_device(name: str) -> torch.device:
+    """name is auto, cpu, mps or cuda; auto picks MPS, then CUDA, then the CPU."""
+    if name == "mps" and not torch.backends.mps.is_available():
+        raise ValueError("--device mps: MPS is not available on this machine; use --device cpu")
+    if name == "cuda" and not torch.cuda.is_available():
+        raise ValueError(
+            "--device cuda: CUDA is not available (a CPU-only PyTorch build or no NVIDIA GPU); "
+            "the README shows how to install a CUDA build, or use --device cpu"
+        )
     if name != "auto":
         return torch.device(name)
     if torch.backends.mps.is_available():

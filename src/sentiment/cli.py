@@ -11,6 +11,7 @@ from sentiment.neural import CNNClassifier, pick_device
 
 MODELS = {"baseline": "TF-IDF + logistic regression", "cnn": "1D CNN (PyTorch)"}
 FILES = {"baseline": "baseline.joblib", "cnn": "cnn.pt"}
+DEVICES = ["auto", "cpu", "mps", "cuda"]
 VAL_FRACTION = 0.1
 
 
@@ -42,16 +43,16 @@ def parser() -> argparse.ArgumentParser:
     t.add_argument(
         "--max-len", type=int, default=400, help="CNN tokens kept per review (default: 400)"
     )
-    t.add_argument("--device", default="auto", help="auto, cpu, mps or cuda (default: auto)")
+    t.add_argument("--device", choices=DEVICES, default="auto", help="default: auto")
     t.set_defaults(command=train)
 
     e = sub.add_parser("evaluate", parents=[data_dir, model_dir], help="score on the test split")
-    e.add_argument("--device", default="auto", help="auto, cpu, mps or cuda (default: auto)")
+    e.add_argument("--device", choices=DEVICES, default="auto", help="default: auto")
     e.set_defaults(command=evaluate)
 
     pr = sub.add_parser("predict", parents=[model_dir], help="classify one or more texts")
     pr.add_argument("texts", nargs="+", metavar="text")
-    pr.add_argument("--device", default="cpu", help="auto, cpu, mps or cuda (default: cpu)")
+    pr.add_argument("--device", choices=DEVICES, default="cpu", help="default: cpu")
     pr.set_defaults(command=predict)
     return p
 
@@ -62,6 +63,7 @@ def download(args) -> int:
 
 
 def train(args) -> int:
+    device = pick_device(args.device)
     train_set, val_set = data.train_val_split(
         data.load_split(args.data_dir, "train"), VAL_FRACTION, args.seed
     )
@@ -71,7 +73,6 @@ def train(args) -> int:
         if name == "baseline":
             model = Baseline.fit(train_set)
         else:
-            device = pick_device(args.device)
             print(f"device: {device}")
             model = CNNClassifier.fit(
                 train_set,
@@ -89,10 +90,11 @@ def train(args) -> int:
 
 def evaluate(args) -> int:
     test = data.load_split(args.data_dir, "test")
+    models = load_models(args.model_dir, pick_device(args.device))
     print(f"IMDB test split, {len(test)} reviews\n")
     print("| Model | Accuracy | Precision | Recall | F1 | Train time |")
     print("|---|---|---|---|---|---|")
-    for name, model in load_models(args.model_dir, pick_device(args.device)).items():
+    for name, model in models.items():
         m = score(model, test)
         print(
             f"| {MODELS[name]} | {m.accuracy:.4f} | {m.precision:.4f} | {m.recall:.4f} "

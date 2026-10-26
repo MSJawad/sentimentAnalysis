@@ -1,9 +1,12 @@
 import socket
 
 import pytest
+import torch
 
 from sentiment import data
 from sentiment.cli import main
+from sentiment.data import Vocab
+from sentiment.neural import CNNClassifier, CNNConfig, TextCNN
 
 
 def test_train_evaluate_and_predict_end_to_end(toy_data_dir, tmp_path, capsys):
@@ -37,6 +40,32 @@ def test_predict_without_trained_models_explains_what_to_run(tmp_path, capsys):
 def test_train_without_data_explains_what_to_run(tmp_path, capsys):
     assert main(["train", "--data-dir", str(tmp_path), "--model-dir", str(tmp_path)]) == 1
     assert "run `sentiment download` first" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", ["train", "evaluate", "predict"])
+def test_an_unavailable_device_is_a_one_line_error(
+    command, toy_data_dir, tmp_path, monkeypatch, capsys
+):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    models = tmp_path / "models"
+    if command != "train":
+        CNNClassifier(TextCNN(CNNConfig(vocab_size=3)), Vocab(["film"]), 16, 0.0).save(
+            models / "cnn.pt"
+        )
+    extra = ["great"] if command == "predict" else ["--data-dir", str(toy_data_dir)]
+    assert main([command, "--model-dir", str(models), "--device", "cuda", *extra]) == 1
+    out, err = capsys.readouterr()
+    assert err.startswith("error: ") and "CUDA" in err and len(err.splitlines()) == 1
+    # The device is checked before any output, training or saving.
+    assert out == ""
+    assert not (models / "baseline.joblib").exists()
+
+
+def test_an_unknown_device_is_a_usage_error(tmp_path, capsys):
+    with pytest.raises(SystemExit) as exit:
+        main(["predict", "--model-dir", str(tmp_path), "--device", "gpu", "great"])
+    assert exit.value.code == 2
+    assert "invalid choice: 'gpu'" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

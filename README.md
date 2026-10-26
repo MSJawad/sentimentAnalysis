@@ -117,7 +117,7 @@ CUDA 13.0 needs NVIDIA driver 580 or newer. With an older driver, use `cu126` in
 - **Baseline** (`src/sentiment/baseline.py`). TF-IDF with sublinear term frequency over unigrams and
   bigrams that appear in at least 2 reviews, then L2-regularized logistic regression (C = 4).
 - **CNN** (`src/sentiment/neural.py`). The first 400 tokens of each review (enough for 87% of reviews
-  in full) go through 128-dimensional embeddings for a vocabulary of the 49,992 words seen
+  in full) go through 128-dimensional embeddings for a vocabulary of the 47,864 words seen
   at least twice. Convolutions of width 3, 4 and 5 (100 filters each) follow, each max-pooled over
   the review, then dropout 0.5 and one output unit. Padding is masked, so a review's score does not
   depend on how it was batched. Training uses Adam (learning rate 0.001, batches of 64) for 8
@@ -131,7 +131,7 @@ logistic regression in a few lines, and PyTorch runs the CNN on the Apple GPU (M
 ## Development
 
 ```sh
-uv run pytest              # 26 tests, about 10 seconds, no dataset or GPU needed
+uv run pytest              # 30 tests, about 10 seconds, no dataset or GPU needed
 uv run ruff check .
 uv run ruff format --check .
 ```
