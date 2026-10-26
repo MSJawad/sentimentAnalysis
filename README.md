@@ -1,5 +1,7 @@
 # IMDB sentiment classifier
 
+[![CI](https://github.com/MSJawad/sentimentAnalysis/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MSJawad/sentimentAnalysis/actions/workflows/ci.yml)
+
 Classifies a movie review as positive or negative. Two models are trained on the
 [Stanford IMDB Large Movie Review dataset](https://ai.stanford.edu/~amaas/data/sentiment/)
 (25,000 training and 25,000 test reviews) and compared on its test split:
