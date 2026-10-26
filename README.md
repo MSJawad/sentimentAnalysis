@@ -139,7 +139,7 @@ uv run ruff format --check .
 The tests use tiny synthetic reviews. They cover the tokenizer, vocabulary, data split, download
 checksum and failures, padding, the CNN forward pass, a training step that lowers the loss, the
 metrics, saving and loading both models, and the CLI from `train` through `predict`. GitHub Actions
-runs the same checks on every push and pull request.
+runs the same checks on every push to `master` and every pull request.
 
 ## History
 
