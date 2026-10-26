@@ -95,6 +95,17 @@ uv run sentiment predict "Not bad at all, I actually enjoyed it."
 train only the baseline (12 seconds), `--epochs`, `--seed` and `--device`. When you are done,
 `rm -rf data models` removes the dataset and the trained models.
 
+On Linux and Windows, `uv sync` installs the CPU-only build of PyTorch, so `train` runs the CNN on
+the CPU. To train on an NVIDIA GPU, replace it with a CUDA build, then run every command with
+`uv run --no-sync`, because a plain `uv run` puts the locked CPU build back:
+
+```sh
+uv pip install --reinstall-package torch --index-url https://download.pytorch.org/whl/cu130 torch==2.14.1
+uv run --no-sync sentiment train
+```
+
+CUDA 13.0 needs NVIDIA driver 580 or newer. With an older driver, use `cu126` in the URL instead.
+
 ## How it works
 
 - **Data** (`src/sentiment/data.py`). `download` fetches the dataset's two labelled splits as
@@ -114,27 +125,27 @@ train only the baseline (12 seconds), `--epochs`, `--seed` and `--device`. When 
 - **CLI** (`src/sentiment/cli.py`). `download`, `train`, `evaluate` and `predict`.
 
 PyTorch and scikit-learn each do what they are best at here: scikit-learn has a tested TF-IDF and
-logistic regression in a few lines, and PyTorch runs the CNN on the Apple GPU (MPS), CUDA or the
-CPU with the same code.
+logistic regression in a few lines, and PyTorch runs the CNN on the Apple GPU (MPS), an NVIDIA GPU
+(CUDA, with the build swap above) or the CPU with the same code.
 
 ## Development
 
 ```sh
-uv run pytest              # 23 tests, about 10 seconds, no dataset or GPU needed
+uv run pytest              # 26 tests, about 10 seconds, no dataset or GPU needed
 uv run ruff check .
 uv run ruff format --check .
 ```
 
 The tests use tiny synthetic reviews. They cover the tokenizer, vocabulary, data split, download
-checksum, padding, the CNN forward pass, a training step that lowers the loss, the metrics, saving
-and loading both models, and the CLI from `train` through `predict`. GitHub Actions runs the same
-checks on every push and pull request.
+checksum and failures, padding, the CNN forward pass, a training step that lowers the loss, the
+metrics, saving and loading both models, and the CLI from `train` through `predict`. GitHub Actions
+runs the same checks on every push and pull request.
 
 ## History
 
 This started in 2018 as a 26-line exercise from Siraj Raval's "Intro to Deep Learning" course on
 Udacity: a TFLearn LSTM on IMDB. That script never ran. It had a misspelled class (`tflearn.DDN`),
-a misspelled function (`to_catagorical`) and a missing `=`, and it padded the test labels instead
-of the test reviews. TFLearn has not been updated since 2020 and no longer imports with a current
-TensorFlow. The project was rebuilt from scratch on PyTorch and scikit-learn; the original script
-is still in the git history.
+a misspelled function (`to_catagorical`) and a missing `=`, and it padded the training labels
+instead of the test reviews. TFLearn has not been updated since 2020 and no longer imports with a
+current TensorFlow. The project was rebuilt from scratch on PyTorch and scikit-learn; the original
+script is still in the git history.

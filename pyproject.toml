@@ -22,7 +22,8 @@ dev = ["pytest==9.1.1", "ruff==0.17.2"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# On Linux (CI), install the CPU-only PyTorch wheel instead of the much larger CUDA build.
+# On Linux, install the CPU-only PyTorch wheel instead of the much larger CUDA build.
+# The README shows how to swap in a CUDA build.
 [tool.uv.sources]
 torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 

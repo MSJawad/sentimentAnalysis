@@ -18,7 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
         return args.command(args)
-    except FileNotFoundError as e:
+    except (OSError, ValueError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

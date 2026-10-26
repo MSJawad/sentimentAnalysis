@@ -3,6 +3,7 @@
 import hashlib
 import random
 import re
+import shutil
 import urllib.request
 from collections import Counter
 from dataclasses import dataclass
@@ -22,6 +23,7 @@ SHA256 = {
     "test": "b52e26e2f872d282ffac460bf9770b25ac6f102cda0e6ca7158df98c94e8b3da",
 }
 SPLITS = ("train", "test")
+DOWNLOAD_TIMEOUT = 60  # seconds a stalled connection may wait before the download fails
 
 PAD, UNK = "<pad>", "<unk>"
 _HTML_BREAK = re.compile(r"<br\s*/?>", re.IGNORECASE)
@@ -53,7 +55,11 @@ def fetch(url: str, dest: Path, sha256: str) -> None:
     """Download url to dest, keeping it only if its SHA-256 matches."""
     partial = dest.with_suffix(dest.suffix + ".part")
     try:
-        urllib.request.urlretrieve(url, partial)
+        with (
+            urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT) as response,
+            partial.open("wb") as f,
+        ):
+            shutil.copyfileobj(response, f)
         actual = hashlib.sha256(partial.read_bytes()).hexdigest()
         if actual != sha256:
             raise ValueError(f"checksum mismatch for {url}: expected {sha256}, got {actual}")

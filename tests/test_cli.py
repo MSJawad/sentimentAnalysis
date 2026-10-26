@@ -1,3 +1,8 @@
+import socket
+
+import pytest
+
+from sentiment import data
 from sentiment.cli import main
 
 
@@ -32,3 +37,30 @@ def test_predict_without_trained_models_explains_what_to_run(tmp_path, capsys):
 def test_train_without_data_explains_what_to_run(tmp_path, capsys):
     assert main(["train", "--data-dir", str(tmp_path), "--model-dir", str(tmp_path)]) == 1
     assert "run `sentiment download` first" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("source_bytes", "message"),
+    [(None, "No such file or directory"), (b"corrupt", "checksum mismatch")],
+)
+def test_download_failure_is_a_one_line_error(source_bytes, message, tmp_path, monkeypatch, capsys):
+    source = tmp_path / "source"
+    source.mkdir()
+    if source_bytes is not None:
+        (source / "train.parquet").write_bytes(source_bytes)
+    monkeypatch.setattr(data, "HF_URL", source.as_uri() + "/{split}.parquet")
+    dest = tmp_path / "data"
+    assert main(["download", "--data-dir", str(dest)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error: ") and message in err and len(err.splitlines()) == 1
+    assert list(dest.iterdir()) == []
+
+
+def test_download_gives_up_on_a_stalled_server(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(data, "DOWNLOAD_TIMEOUT", 0.2)
+    with socket.create_server(("127.0.0.1", 0)) as server:
+        host, port = server.getsockname()
+        monkeypatch.setattr(data, "HF_URL", f"http://{host}:{port}/{{split}}.parquet")
+        assert main(["download", "--data-dir", str(tmp_path)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("error: ") and "timed out" in err

@@ -97,6 +97,11 @@ class CNNClassifier:
     def device(self) -> torch.device:
         return next(self.model.parameters()).device
 
+    @property
+    def batch_width(self) -> int:
+        """Every batch has this width: on MPS each new input shape costs a graph recompile."""
+        return max(self.max_len, *self.model.config.kernel_sizes)
+
     @classmethod
     def fit(
         cls,
@@ -121,14 +126,12 @@ class CNNClassifier:
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
         encoded = [vocab.encode(r.text, max_len) for r in train]
         labels = torch.tensor([r.label for r in train])
-        # Every batch has the same width: on MPS each new input shape costs a graph recompile.
-        width = max(max_len, *model.config.kernel_sizes)
         generator = torch.Generator().manual_seed(seed)
         best_accuracy, best_state = -1.0, None
         for epoch in range(1, epochs + 1):
             losses = []
             for batch in torch.randperm(len(train), generator=generator).split(batch_size):
-                ids = pad_batch([encoded[i] for i in batch], width).to(device)
+                ids = pad_batch([encoded[i] for i in batch], classifier.batch_width).to(device)
                 losses.append(train_step(model, optimizer, ids, labels[batch].to(device)))
             val_probs = classifier.predict_proba([r.text for r in val])
             val_accuracy = classification_metrics([r.label for r in val], val_probs >= 0.5).accuracy
@@ -143,11 +146,10 @@ class CNNClassifier:
     def predict_proba(self, texts: list[str], batch_size: int = 256) -> np.ndarray:
         """Probability that each text is positive."""
         self.model.eval()
-        width = max(self.max_len, *self.model.config.kernel_sizes)
         probs = []
         for i in range(0, len(texts), batch_size):
             encoded = [self.vocab.encode(t, self.max_len) for t in texts[i : i + batch_size]]
-            ids = pad_batch(encoded, width).to(self.device)
+            ids = pad_batch(encoded, self.batch_width).to(self.device)
             probs.append(torch.sigmoid(self.model(ids)).cpu().numpy())
         return np.concatenate(probs) if probs else np.empty(0)
 
